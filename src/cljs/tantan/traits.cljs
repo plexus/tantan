@@ -7,12 +7,22 @@
 (declare render-children)
 (declare render-entry)
 
+(defn trait? [data trait]
+  (contains? (:traits data) trait))
+
 (defn find-col-width [element]
-  (if-let [cols (:cols (get element 1))]
+  (if-let [cols (:cols element)]
     cols
-    (if-let [cs (next (next element))]
+    (if-let [cs (:parts element)]
       (reduce + (map find-col-width cs))
-      0)))
+      1)))
+
+(defn find-tree-width [data]
+  (if (trait? data :children)
+    (+ (reduce + (map find-tree-width (:children data)))
+       (count (:children data))
+       -1)
+    (find-col-width data)))
 
 (defn char [entry data owner]
   [:g {:width col-width}
@@ -23,7 +33,7 @@
 (defn parts [entry data owner]
   (let [parts (:parts data)
         entries (map render-entry parts (repeat owner))
-        col-widths (map find-col-width entries)
+        col-widths (map find-col-width parts)
         cols (reduce + col-widths)
         offset (* 0.5 (dec cols))]
     (into entry
@@ -55,7 +65,7 @@
    entry])
 
 (defn text [entry data owner]
-  [:g {:width col-width}
+  [:g {:width col-width :transform "translate(-25)"}
    entry
    (svg/text (:text data) :cols 4 :y "1em" :style {:text-anchor "left"})])
 
@@ -84,16 +94,31 @@
   (svg/path :d [:M 0 0 :C (* idx 25) 0, (* idx 50) 25, (* idx 50) 45]
             :stroke-width "2"))
 
+(defn edge-positions [widths]
+  (let [count (+ (reduce + widths) (count widths) -1)
+        first-pos (+ (- (/ count 2)) (/ (first widths) 2))
+        pairs (map vector widths (drop 1 widths))]
+    (.log js/console (str "ww" widths))
+    (.log js/console (str "f" first-pos))
+    (reduce (fn [coll [x y]]
+              (conj coll (+ (last coll) (/ (+ x y) 2) 1)))
+            [first-pos]
+            pairs)))
+
 (defn render-children [children owner]
-  (let [count (count children)
+  (let [widths (map find-tree-width children)
+        count (+ (reduce + widths) (count widths) -1)
+        edges (edge-positions widths)
         even (even? count)
         edge-range (range (- count) count)
         edge-range (filter (if even odd? even?) edge-range)]
+    (.log js/console (str "w" widths))
+    (.log js/console (str edges))
     (if (> count 0)
       [:g
        (svg/path :d [:M 0 5 :V 50] :stroke-width "2")
        (apply grid/row 1
-              (map render-edge edge-range))
+              (map render-edge edges))
        (apply grid/row 2
-              (map #(grid/col %2 (render-entry %1 %3)) children edge-range (repeat owner)))]
+              (map #(grid/col %2 (render-entry %1 %3)) children edges (repeat owner)))]
       [:g])))

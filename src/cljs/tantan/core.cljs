@@ -18,8 +18,30 @@
                       :children [{:parts [{:text "緊"
                                            :traits #{:char :interactive}}
                                           {:text "- tight\n- strict\n- close at hand\n- near\n- to tighten"
+                                           :cols 3
+
                                            :traits #{:text}}]
-                                  :traits #{:parts}}
+                                  :children [{:text "弓"
+                                                       :children [{:text "引"
+                                                                   :traits #{:char :interactive}}
+                                                                  {:text "弹"
+                                                                   :traits #{:char :interactive}}
+                                                                  ]
+                                                       :traits #{:children :char :interactive}}
+                                                      {:text "長"
+                                                       :children [{:text "引"
+                                                                   :traits #{:char :interactive}}
+                                                                  {:text "弹"
+                                                                   :traits #{:char :interactive}}
+                                                                  {:text "粥"
+                                                                   :traits #{:char :interactive}}
+                                                                  {:text "彊"
+                                                                   :traits #{:char :interactive}}
+                                                                  {:text "彎"
+                                                                   :traits #{:char :interactive}}
+                                                                  ]
+                                                       :traits #{:char :children :interactive}}]
+                                  :traits #{:parts :children}}
                                  {:text "張"
                                   :children [{:text "弓"
                                               :children [{:text "引"
@@ -52,8 +74,10 @@
     (will-mount [_])
     om/IRender
     (render [_]
-      (html [:svg {:width 1500 :height 1500}
-             (grid/cell 5 2 (render-entry app owner))]))))
+      (html [:svg {:width "100%" :height "1500"}
+             (grid/cell (/ (tantan.traits/find-tree-width app) 2)
+                        2
+                        (render-entry app owner))]))))
 
 (defn main []
   (let [event-chan (chan)]
