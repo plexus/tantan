@@ -28,7 +28,7 @@
 
   :uberjar-name "tantan.jar"
 
-  :cljsbuild {:builds {:app {:source-paths ["src/cljs" "target/generated/cljs"]
+  :cljsbuild {:builds {:app {:source-paths ["src/cljs"]
                              :compiler {:output-to     "resources/public/js/app.js"
                                         :output-dir    "resources/public/js/out"
                                         :source-map    "resources/public/js/out.js.map"

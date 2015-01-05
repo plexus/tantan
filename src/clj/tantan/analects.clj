@@ -1,5 +1,6 @@
 (ns tantan.analects
-  (:require [clojure.java.io :as io]
+  (:require [tantan.dev :refer [is-dev?]]
+            [clojure.java.io :as io]
             [clojure.string :as string]
             [environ.core :refer [env]]))
 
@@ -9,7 +10,7 @@
               (.resolve path)
               .toFile))
   ([] (io/file
-       (env :analects-data-dir))))
+       (io/resource "analects"))))
 
 (defn ^:private chise-ids-files []
   (filter #(.endsWith (.getName %) ".txt")
