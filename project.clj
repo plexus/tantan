@@ -12,12 +12,14 @@
                  [org.clojure/clojurescript "0.0-2496" :scope "provided"]
                  [ring "1.3.2"]
                  [ring/ring-defaults "0.1.2"]
+                 [ring-transit "0.1.3"]
                  [compojure "1.3.1"]
                  [enlive "1.1.5"]
                  [om "0.8.0-beta3"]
                  [environ "1.0.0"]
                  [http-kit "2.1.19"]
-                 [sablono "0.2.22"]]
+                 [sablono "0.2.22"]
+                 [cljs-http "0.1.24"]]
 
   :plugins [[lein-cljsbuild "1.0.3"]
             [lein-environ "1.0.0"]]
@@ -34,6 +36,8 @@
                                         :externs       ["react/externs/react.js"]
                                         :optimizations :none
                                         :pretty-print  true}}}}
+
+  :env { :analects-data-dir "/home/arne/github/analects-data" }
 
   :profiles {:dev {:source-paths ["env/dev/clj"]
 

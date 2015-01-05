@@ -1,88 +1,92 @@
 (ns tantan.core
-  (:require [cljs.core.async :as async :refer [>! <! chan put! close!]]
+  (:require [tantan.grid :as grid]
+            [tantan.traits :refer [render-entry]]
+            [cljs.core.async :as async :refer [>! <! chan put! close!]]
             [om.core :as om :include-macros true]
             [sablono.core :as html :refer-macros [html]]
             [clojure.string :as s]
-            [tantan.grid :as grid]
-            [tantan.traits :refer [render-entry]])
+            [cljs-http.client :as http])
   (:require-macros [cljs.core.async.macros :refer [go go-loop]]))
 
-(def app-state (atom {:parts [{:text "緊"
-                               :color "blue"
-                               :pinyin "jin3"
-                               :traits #{:char :color :pinyin}}
-                              {:text "張"
-                               :color "red"
-                               :pinyin "zhang1"
-                               :traits #{:char :color}}]
-                      :children [{:parts [{:text "緊"
-                                           :traits #{:char :interactive}}
-                                          {:text "- tight\n- strict\n- close at hand\n- near\n- to tighten"
-                                           :cols 3
-
-                                           :traits #{:text}}]
-                                  :children [{:text "弓"
-                                                       :children [{:text "引"
-                                                                   :traits #{:char :interactive}}
-                                                                  {:text "弹"
-                                                                   :traits #{:char :interactive}}
-                                                                  ]
-                                                       :traits #{:children :char :interactive}}
-                                                      {:text "長"
-                                                       :children [{:text "引"
-                                                                   :traits #{:char :interactive}}
-                                                                  {:text "弹"
-                                                                   :traits #{:char :interactive}}
-                                                                  {:text "粥"
-                                                                   :traits #{:char :interactive}}
-                                                                  {:text "彊"
-                                                                   :traits #{:char :interactive}}
-                                                                  {:text "彎"
-                                                                   :traits #{:char :interactive}}
-                                                                  ]
-                                                       :traits #{:char :children :interactive}}]
-                                  :traits #{:parts :children}}
-                                 {:text "張"
-                                  :children [{:text "弓"
-                                              :children [{:text "引"
-                                                          :traits #{:char :interactive}}
-                                                         {:text "弹"
-                                                          :traits #{:char :interactive}}
-                                                         {:text "粥"
-                                                          :traits #{:char :interactive}}
-                                                         {:text "彊"
-                                                          :traits #{:char :interactive}}
-                                                         {:text "彎"
-                                                          :traits #{:char :interactive}}
-                                                         ]
-                                              :traits #{:children :char :interactive}}
-                                             {:text "長"
-                                              :traits #{:char :interactive}}]
-                                  :traits #{:char :interactive :children}}]
-                      :traits #{:children :parts :interactive}}))
+(defonce app-state (atom {:tree {}}))
 
 (defn handle-event [[message cursor]]
-  #_(.log js/console (str @cursor))
   (case message
     :click       (om/transact! cursor (fn [c] (update-in c [:traits] #(conj % :hovered))))
     :mouse-enter (om/transact! cursor (fn [c] (update-in c [:traits] #(conj % :hovered))))
     :mouse-leave (om/transact! cursor (fn [c] (update-in c [:traits] #(disj % :hovered))))))
 
-(defn app [app owner]
+(comment
+  (defn contacts-view [app owner]
+    (reify
+      om/IInitState
+      (init-state [_]
+        {:delete (chan)
+         :text "打開"})
+      om/IWillMount
+      (will-mount [_]
+        (let [delete (om/get-state owner :delete)]
+          (go (loop []
+                (let [contact (<! delete)]
+                  (om/transact! app :contacts
+                                (fn [xs] (vec (remove #(= contact %) xs))))
+                  (recur))))))
+      om/IRenderState
+      (render-state [this state]
+        (dom/div nil
+                 (dom/h2 nil "Contact list")
+                 (apply dom/ul nil
+                        (om/build-all contact-view (:contacts app)
+                                      {:init-state state}))
+                 (dom/div nil
+                          (dom/input #js {:type "text" :ref "new-contact" :value (:text state)})
+                          (dom/button #js {:onClick #(add-contact app owner)} "Add contact")))))))
+
+(defn fetch-entry [input]
+  (go (let [response (<! (http/get (str "/entry/" input)))]
+        (swap! app-state #(assoc % :tree (:body response))))))
+
+(defn handle-change [e owner {:keys [text]}]
+  (om/set-state! owner :text (.. e -target -value)))
+
+(defn sidebar-component [cursor owner]
   (reify
-    om/IWillMount
-    (will-mount [_])
+    om/IInitState
+    (init-state [_]
+      {:text ""})
+    om/IRenderState
+    (render-state [this state]
+      (html [:div {:style {:width "15%"
+                           :height (.-innerHeight js/window)
+                           :background-color "#FFD378"
+                           :float "left"}}
+             [:input {:type "text" :ref "search-box" :value (:text state)
+                      :on-change #(handle-change % owner state)}]
+             [:button {:on-click #(fetch-entry (:text state))} "GO"]]))))
+
+(defn tree-component [cursor owner]
+  (reify
+    ;; om/IWillMount
+    ;; (will-mount [_])
     om/IRender
     (render [_]
-      (html [:svg {:width "100%" :height "1500"}
-             (grid/cell (/ (tantan.traits/find-tree-width app) 2)
-                        2
-                        (render-entry app owner))]))))
+      (html [:svg {:width "84%" :height "1500" :style {:float "left"}}
+             (grid/cell (+ (/ (tantan.traits/find-tree-width cursor) 2) 1)
+                        1
+                        (render-entry cursor owner))]))))
+
+(defn app-component [app owner]
+  (reify
+    om/IRender
+    (render [_]
+      (html [:div
+             (om/build sidebar-component app)
+             (om/build tree-component (:tree app))]))))
 
 (defn main []
   (let [event-chan (chan)]
     (go-loop []
       (handle-event (<! event-chan))
       (recur))
-    (om/root app app-state {:shared {:event-chan event-chan}
-                            :target (. js/document (getElementById "app"))})))
+    (om/root app-component app-state {:shared {:event-chan event-chan}
+                                      :target (. js/document (getElementById "app"))})))

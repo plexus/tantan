@@ -1,27 +1,36 @@
 (ns tantan.server
   (:require [clojure.java.io :as io]
             [tantan.dev :refer [is-dev? inject-devmode-html browser-repl start-figwheel]]
-            [compojure.core :refer [GET defroutes]]
+            [tantan.api :as api]
+            [compojure.core :refer [GET defroutes routes]]
             [compojure.route :refer [resources]]
             [net.cgrand.enlive-html :refer [deftemplate]]
             [net.cgrand.reload :refer [auto-reload]]
+            [ring.middleware.transit :refer [wrap-transit-response]]
             [ring.middleware.reload :as reload]
             [ring.middleware.defaults :refer [wrap-defaults api-defaults]]
             [environ.core :refer [env]]
-            [org.httpkit.server :refer [run-server]]))
+            [org.httpkit.server :refer [run-server]]
+            [ring.util.response :as response]))
 
 (deftemplate page
   (io/resource "index.html") [] [:body] (if is-dev? inject-devmode-html identity))
 
-(defroutes routes
+(defroutes my-routes
   (resources "/")
   (resources "/react" {:root "react"})
-  (GET "/*" req (page)))
+  (wrap-transit-response
+   (GET "/entry/:entry" [entry]
+        (api/find-entry entry)))
+  (GET "/*" req
+       (page)))
 
 (def http-handler
-  (if is-dev?
-    (reload/wrap-reload (wrap-defaults #'routes api-defaults))
-    (wrap-defaults routes api-defaults)))
+  (let [handler (-> #'my-routes
+                    (wrap-defaults api-defaults))]
+    (if is-dev?
+      (reload/wrap-reload handler)
+      handler)))
 
 (defn run-web-server [& [port]]
   (let [port (Integer. (or port (env :port) 10555))]

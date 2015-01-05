@@ -1,4 +1,5 @@
 (ns tantan.traits
+  (:refer-clojure :exclude [char])
   (:require [cljs.core.async :as async :refer [>! <! alts! chan sliding-buffer put! close!]]
             [om.core :as om :include-macros true]
             [tantan.svg :as svg]
