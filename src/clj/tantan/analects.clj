@@ -5,10 +5,8 @@
             [environ.core :refer [env]]))
 
 (defn analects-data-dir
-  ([path] (-> (analects-data-dir)
-              .toPath
-              (.resolve path)
-              .toFile))
+  ([path] (io/file
+           (io/resource (str "analects/" path))))
   ([] (io/file
        (io/resource "analects"))))
 
@@ -31,7 +29,7 @@
                   (line-seq reader))))))
 
 (defn ^:private chise-ids* []
-  (mapcat read-chise-ids-file (chise-ids-files)))
+  (read-chise-ids-file (analects-data-dir "chise_ids/all.txt")))
 
 (defn ^:private cedict* []
   (read-cedict-file (analects-data-dir "cedict/cedict_1_0_ts_utf-8_mdbg.txt")))
